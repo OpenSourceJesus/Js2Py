@@ -17,6 +17,12 @@ except ImportError:
     looks_like_es9 = None
     prepare_es9 = None
 
+try:
+    from ..es10 import looks_like_es10, prepare_es10
+except ImportError:
+    looks_like_es10 = None
+    prepare_es10 = None
+
 # Enable Js2Py exceptions and pyimport in parser
 pyjsparser.parser.ENABLE_PYIMPORT = True
 
@@ -73,8 +79,13 @@ def pyjsparser_parse_fn(code):
     parser = pyjsparser.PyJsParser()
     return parser.parse(code)
 
-def _prepare_js_source(js, es6=False, es9=False):
-    """Optionally downlevel ES6/ES9 source before translation."""
+def _prepare_js_source(js, es6=False, es9=False, es10=False):
+    """Optionally downlevel ES6/ES9/ES10 source before translation."""
+    if es10 == 'auto':
+        if looks_like_es10 and looks_like_es10(js):
+            es10 = True
+        else:
+            es10 = False
     if es9 == 'auto':
         if looks_like_es9 and looks_like_es9(js):
             es9 = True
@@ -85,6 +96,8 @@ def _prepare_js_source(js, es6=False, es9=False):
             es6 = True
         else:
             es6 = False
+    if es10 and prepare_es10:
+        js = prepare_es10(js)
     if es9 and prepare_es9:
         js = prepare_es9(js)
     if es6:
@@ -95,14 +108,16 @@ def _prepare_js_source(js, es6=False, es9=False):
 
 
 def translate_js(js, HEADER=DEFAULT_HEADER, use_compilation_plan=False,
-                 parse_fn=pyjsparser_parse_fn, es6=False, es9=False):
+                 parse_fn=pyjsparser_parse_fn, es6=False, es9=False,
+                 es10=False):
     """js has to be a javascript source code.
        returns equivalent python code.
 
        es6: False (ES5 only), True (always transpile via Babel), or 'auto'
             (transpile when ES6 syntax is detected).
-       es9: False, True, or 'auto' — enable ES2018 features (spread/rest, etc.)."""
-    js = _prepare_js_source(js, es6=es6, es9=es9)
+       es9: False, True, or 'auto' — enable ES2018 features (spread/rest, etc.).
+       es10: False, True, or 'auto' — enable ES2019 features (flat, trimStart, etc.)."""
+    js = _prepare_js_source(js, es6=es6, es9=es9, es10=es10)
     if use_compilation_plan and not '//' in js and not '/*' in js:
         return translate_js_with_compilation_plan(js, HEADER=HEADER)
 

@@ -299,6 +299,28 @@ class StringPrototype:
         this.cok()
         return this.Js(this.to_string().value.strip(WHITE))
 
+    def trimStart():
+        this.cok()
+        s = this.to_string().value
+        i = 0
+        while i < len(s) and s[i] in WHITE:
+            i += 1
+        return this.Js(s[i:])
+
+    def trimEnd():
+        this.cok()
+        s = this.to_string().value
+        i = len(s)
+        while i > 0 and s[i - 1] in WHITE:
+            i -= 1
+        return this.Js(s[:i])
+
+    def trimLeft():
+        return this.callprop('trimStart')
+
+    def trimRight():
+        return this.callprop('trimEnd')
+
 
 def SplitMatch(s, q, R):
     # s is Py String to match, q is the py int match start and R is Js RegExp or String.

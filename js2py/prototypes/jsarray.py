@@ -447,6 +447,38 @@ class ArrayPrototype:
             k -= 1
         return accumulator
 
+    def flat(depth):
+        array = this.to_object()
+        depth_num = 1 if depth.is_undefined() else depth.to_int()
+        if depth_num < 0:
+            depth_num = 0
+        result = this.Js([])
+        n = [0]
+
+        def flatten(source, current_depth):
+            length = source.get('length').to_uint32()
+            for i in xrange(length):
+                key = str(i)
+                if not source.has_property(key):
+                    continue
+                element = source.get(key)
+                if current_depth > 0 and element.Class == 'Array':
+                    flatten(element, current_depth - 1)
+                else:
+                    result.put(str(n[0]), element)
+                    n[0] += 1
+
+        flatten(array, depth_num)
+        result.put('length', this.Js(n[0]))
+        return result
+
+    def flatMap(callbackfn):
+        if not callbackfn.is_callable():
+            raise this.MakeError('TypeError', 'callbackfn must be a function')
+        mapped = this.callprop('map', callbackfn,
+                               arguments[1] if len(arguments) > 1 else this.undefined)
+        return mapped.callprop('flat', this.Js(1))
+
 
 def sort_compare(a, b, comp):
     if a is None:
