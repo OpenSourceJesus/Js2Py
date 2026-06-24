@@ -1,6 +1,7 @@
 from .base import *
 from .constructors.jsmath import Math
 from .constructors.jsdate import Date
+from .constructors.jspromise import Promise
 from .constructors.jsobject import Object
 from .constructors.jsfunction import Function
 from .constructors.jsstring import String
@@ -21,6 +22,7 @@ from .constructors.jsfloat64array import Float64Array
 from .prototypes.jsjson import JSON
 from .host.console import console
 from .host.jseval import Eval
+from .host.jstimers import setTimeout, setInterval, clearTimeout, clearInterval
 from .host.jsfunctions import parseFloat, parseInt, isFinite, \
     isNaN, escape, unescape, encodeURI, decodeURI, encodeURIComponent, decodeURIComponent
 
@@ -47,6 +49,7 @@ builtins = (
     'RegExp',
     'Math',
     'Date',
+    'Promise',
     'Object',
     'Function',
     'Array',
@@ -70,6 +73,10 @@ builtins = (
     'decodeURI',
     'encodeURIComponent',
     'decodeURIComponent',
+    'setTimeout',
+    'setInterval',
+    'clearTimeout',
+    'clearInterval',
 )
 
 #Array, Function, JSON,   Error is done later :)

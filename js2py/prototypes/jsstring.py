@@ -299,6 +299,42 @@ class StringPrototype:
         this.cok()
         return this.Js(this.to_string().value.strip(WHITE))
 
+    def padStart(maxLength, fillString):
+        this.cok()
+        s = this.to_string().value
+        target = maxLength.to_int()
+        if target < 0:
+            target = 0
+        if len(s) >= target:
+            return this.Js(s)
+        if len(arguments) < 2 or fillString.is_undefined():
+            fill = ' '
+        else:
+            fill = fillString.to_string().value
+            if fill == '':
+                fill = ' '
+        pad_len = target - len(s)
+        repeated = (fill * (pad_len // len(fill) + 1))[:pad_len]
+        return this.Js(repeated + s)
+
+    def padEnd(maxLength, fillString):
+        this.cok()
+        s = this.to_string().value
+        target = maxLength.to_int()
+        if target < 0:
+            target = 0
+        if len(s) >= target:
+            return this.Js(s)
+        if len(arguments) < 2 or fillString.is_undefined():
+            fill = ' '
+        else:
+            fill = fillString.to_string().value
+            if fill == '':
+                fill = ' '
+        pad_len = target - len(s)
+        repeated = (fill * (pad_len // len(fill) + 1))[:pad_len]
+        return this.Js(s + repeated)
+
 
 def SplitMatch(s, q, R):
     # s is Py String to match, q is the py int match start and R is Js RegExp or String.

@@ -145,6 +145,37 @@ class ObjectMethods:
             raise MakeError('TypeError', 'Object.keys called on non-object')
         return [e for e, d in six.iteritems(obj.own) if d.get('enumerable')]
 
+    def values(obj):
+        if not obj.is_object():
+            raise MakeError('TypeError', 'Object.values called on non-object')
+        obj = obj.to_object()
+        return [
+            obj.get(name)
+            for name, desc in six.iteritems(obj.own)
+            if desc.get('enumerable')
+        ]
+
+    def entries(obj):
+        if not obj.is_object():
+            raise MakeError('TypeError', 'Object.entries called on non-object')
+        obj = obj.to_object()
+        return [
+            [Js(name), obj.get(name)]
+            for name, desc in six.iteritems(obj.own)
+            if desc.get('enumerable')
+        ]
+
+    def getOwnPropertyDescriptors(obj):
+        if not obj.is_object():
+            raise MakeError(
+                'TypeError',
+                'Object.getOwnPropertyDescriptors called on non-object')
+        obj = obj.to_object()
+        result = PyJsObject(prototype=ObjectPrototype)
+        for name, desc in six.iteritems(obj.own):
+            result.put(name, FromPropertyDescriptor(desc))
+        return result
+
 
 # add methods attached to Object constructor
 fill_prototype(Object, ObjectMethods, default_attrs)
@@ -196,3 +227,25 @@ def ToPropertyDescriptor(obj):  # page 38 (50 absolute)
             'Invalid property.  A property cannot both have accessors and be writable or have a value.'
         )
     return desc
+
+
+def FromPropertyDescriptor(desc):
+    if desc is None:
+        return undefined
+    obj = PyJsObject(prototype=ObjectPrototype)
+    fields = []
+    if is_data_descriptor(desc):
+        fields.extend(('value', 'writable'))
+    elif is_accessor_descriptor(desc):
+        fields.extend(('get', 'set'))
+    fields.extend(('enumerable', 'configurable'))
+    for key in fields:
+        if key in desc:
+            val = desc[key] if key in ('value', 'get', 'set') else Js(desc[key])
+            obj.define_own_property(key, {
+                'value': val,
+                'writable': True,
+                'enumerable': True,
+                'configurable': True
+            })
+    return obj
