@@ -283,6 +283,32 @@ class ArrayPrototype:
             k += 1
         return -1
 
+    def includes(searchElement):
+        array = this.to_object()
+        arr_len = array.get('length').to_uint32()
+        if arr_len == 0:
+            return False
+        if len(arguments) > 1:
+            n = arguments[1].to_int()
+        else:
+            n = 0
+        if n >= arr_len:
+            return False
+        if n >= 0:
+            k = n
+        else:
+            k = arr_len - abs(n)
+            if k < 0:
+                k = 0
+        while k < arr_len:
+            if array.has_property(str(k)):
+                elementK = array.get(str(k))
+                if (searchElement.is_nan() and elementK.is_nan()
+                        or searchElement.strict_equality_comparison(elementK)):
+                    return True
+            k += 1
+        return False
+
     def lastIndexOf(searchElement):
         array = this.to_object()
         arr_len = array.get('length').to_uint32()

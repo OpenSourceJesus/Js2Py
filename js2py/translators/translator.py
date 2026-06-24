@@ -11,6 +11,12 @@ except ImportError:
     js6_to_js5 = None
     looks_like_es6 = None
 
+try:
+    from ..es7 import looks_like_es7, ensure_pyjsparser_es7
+except ImportError:
+    looks_like_es7 = None
+    ensure_pyjsparser_es7 = None
+
 # Enable Js2Py exceptions and pyimport in parser
 pyjsparser.parser.ENABLE_PYIMPORT = True
 
@@ -67,13 +73,21 @@ def pyjsparser_parse_fn(code):
     parser = pyjsparser.PyJsParser()
     return parser.parse(code)
 
-def _prepare_js_source(js, es6=False):
-    """Optionally downlevel ES6 source to ES5 before translation."""
+def _prepare_js_source(js, es6=False, es7=False):
+    """Optionally enable ES7 parsing and downlevel ES6 source before translation."""
+    if es7 == 'auto':
+        if looks_like_es7 and looks_like_es7(js):
+            es7 = True
+        else:
+            es7 = False
     if es6 == 'auto':
         if looks_like_es6 and looks_like_es6(js):
             es6 = True
         else:
             es6 = False
+    if es7 or es6:
+        if ensure_pyjsparser_es7:
+            ensure_pyjsparser_es7()
     if es6:
         if js6_to_js5 is None:
             raise RuntimeError('ES6 support is not available')
@@ -82,13 +96,14 @@ def _prepare_js_source(js, es6=False):
 
 
 def translate_js(js, HEADER=DEFAULT_HEADER, use_compilation_plan=False,
-                 parse_fn=pyjsparser_parse_fn, es6=False):
+                 parse_fn=pyjsparser_parse_fn, es6=False, es7=False):
     """js has to be a javascript source code.
        returns equivalent python code.
 
        es6: False (ES5 only), True (always transpile via Babel), or 'auto'
-            (transpile when ES6 syntax is detected)."""
-    js = _prepare_js_source(js, es6)
+            (transpile when ES6 syntax is detected).
+       es7: False, True, or 'auto' — enable ES2016 features (e.g. **)."""
+    js = _prepare_js_source(js, es6, es7)
     if use_compilation_plan and not '//' in js and not '/*' in js:
         return translate_js_with_compilation_plan(js, HEADER=HEADER)
 

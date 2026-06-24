@@ -65,7 +65,7 @@ __author__ = 'Piotr Dabkowski'
 __all__ = [
     'EvalJs', 'translate_js', 'import_js', 'eval_js', 'parse_js',
     'translate_file', 'run_file', 'disable_pyimport', 'eval_js6',
-    'translate_js6', 'PyJsException', 'get_file_contents',
+    'translate_js6', 'eval_js7', 'translate_js7', 'PyJsException', 'get_file_contents',
     'write_file_contents', 'require'
 ]
 

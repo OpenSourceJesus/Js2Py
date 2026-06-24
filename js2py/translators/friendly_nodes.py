@@ -221,6 +221,10 @@ def js_mod(a, b):
     return '(' + a + '%' + b + ')'
 
 
+def js_pow(a, b):
+    return 'Js((%s).to_number().value ** (%s).to_number().value)' % (a, b)
+
+
 def js_typeof(a):
     cand = list(bracket_split(a, ('()', )))
     if len(cand) == 2 and cand[0] == 'var.get':
@@ -347,7 +351,7 @@ BSHIFTS = {'<<': js_lshift, '>>': js_rshift, '>>>': js_shit}
 
 ADDS = {'+': js_add, '-': js_sub}
 
-MULTS = {'*': js_mul, '/': js_div, '%': js_mod}
+MULTS = {'*': js_mul, '/': js_div, '%': js_mod, '**': js_pow}
 BINARY = {}
 BINARY.update(ADDS)
 BINARY.update(MULTS)

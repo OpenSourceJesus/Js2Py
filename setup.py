@@ -30,7 +30,8 @@ setup(
     version='0.74',
 
     packages=['js2py', 'js2py.utils', 'js2py.prototypes', 'js2py.translators',
-              'js2py.constructors', 'js2py.host', 'js2py.es6', 'js2py.internals',
+              'js2py.constructors', 'js2py.host', 'js2py.es6', 'js2py.es7',
+              'js2py.internals',
               'js2py.internals.prototypes', 'js2py.internals.constructors', 'js2py.py_node_modules'],
     url='https://github.com/PiotrDabkowski/Js2Py',
     install_requires = ['tzlocal>=1.2', 'six>=1.10', 'pyjsparser>=2.5.1'],
