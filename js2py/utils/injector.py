@@ -24,9 +24,12 @@ def fix_js_args(func):
     fargs = fcode.co_varnames[fcode.co_argcount - 2:fcode.co_argcount]
     if fargs == ('this', 'arguments') or fargs == ('arguments', 'var'):
         return func
-    if sys.version_info >= (3, 13):
-        return _wrap_js_args(func)
-    code = append_arguments(six.get_function_code(func), ('this', 'arguments'))
+    # Python 3.11+ bytecode layouts (especially 3.14 inline caches) are too
+    # fragile to rewrite safely. PyJsFunction.call injects this/arguments
+    # into the function globals instead.
+    if sys.version_info >= (3, 11):
+        return func
+    code = append_arguments(fcode, ('this', 'arguments'))
 
     result = types.FunctionType(
         code,
@@ -36,18 +39,96 @@ def fix_js_args(func):
     return result
 
 
-def _wrap_js_args(func):
-    """Append this/arguments to a function signature without rewriting bytecode."""
-    fcode = six.get_function_code(func)
-    param_names = list(fcode.co_varnames[:fcode.co_argcount])
-    func_name = func.__name__
-    sig = ', '.join(param_names + ['this', 'arguments'])
-    call = ', '.join(param_names)
-    src = 'def {name}({sig}):\n    return _func({call})\n'.format(
-        name=func_name, sig=sig, call=call)
-    namespace = {'_func': func}
-    exec(compile(src, '<js2py wrap>', 'exec'), namespace)
-    return namespace[func_name]
+def _instruction_bytes(code_obj, inst, insts, index):
+    old_code = code_obj.co_code
+    end = len(old_code)
+    if index + 1 < len(insts):
+        end = insts[index + 1].offset
+    return old_code[inst.offset:end]
+
+
+def _instruction_span_len(code_obj, insts, index):
+    inst = insts[index]
+    if index + 1 < len(insts):
+        return insts[index + 1].offset - inst.offset
+    return len(code_obj.co_code) - inst.offset
+
+
+def _write_padded_instruction(op, arg, span_len):
+    """Write an instruction, padding with NOPs to fill span_len bytes."""
+    nop = dis.opmap['NOP']
+    out = bytearray(write_instruction(op, arg))
+    while len(out) < span_len:
+        out.extend(write_instruction(nop, 0))
+    return bytes(out[:span_len])
+
+
+_PACKED_FAST_OPS = frozenset(
+    name for name in opcode.opmap
+    if ('LOAD_FAST' in name or 'STORE_FAST' in name) and name.count('FAST') >= 2)
+
+
+def _remap_local_arg(inst, translations):
+    """Remap a local slot index, including packed two-slot operands."""
+    if inst.opname in _PACKED_FAST_OPS:
+        first = inst.arg & 0xF
+        second = (inst.arg >> 4) & 0xF
+        first = translations.get(first, first)
+        second = translations.get(second, second)
+        return (second << 4) | first
+    if inst.arg in translations:
+        return translations[inst.arg]
+    return inst.arg
+
+
+def _patch_span_arg(span, new_arg):
+    """Patch the arg byte of a 2-byte wordcode instruction."""
+    chunk = bytearray(span)
+    chunk[1] = new_arg & 0xFF
+    return bytes(chunk)
+
+
+def _extend_js_args_modern(code_obj, new_locals):
+    """Extend a code object with this/arguments on Python 3.11+."""
+    co_varnames = code_obj.co_varnames
+    co_argcount = code_obj.co_argcount
+    new_locals_len = len(new_locals)
+    varnames = (
+        co_varnames[:co_argcount] + new_locals + co_varnames[co_argcount:])
+    names_to_idx = {name: varnames.index(name) for name in new_locals}
+    varname_translations = dict((i, i) for i in range(co_argcount))
+    varname_translations.update(
+        (i, i + new_locals_len) for i in range(co_argcount, len(co_varnames)))
+    insts = list(instructions(code_obj, show_cache=False))
+    load_fast = opcode.opmap.get('LOAD_FAST_BORROW', LOAD_FAST)
+    modified = bytearray()
+    for index, inst in enumerate(insts):
+        span = _instruction_bytes(code_obj, inst, insts, index)
+        if (inst.opname == 'LOAD_GLOBAL' and
+                getattr(inst, 'argval', None) in names_to_idx):
+            modified.extend(_write_padded_instruction(
+                load_fast, names_to_idx[inst.argval], len(span)))
+            continue
+        if inst.opcode in opcode.haslocal:
+            new_arg = _remap_local_arg(inst, varname_translations)
+            if new_arg != inst.arg:
+                modified.extend(_patch_span_arg(span, new_arg))
+                continue
+        if (sys.version_info >= (3, 11) and inst.opcode in opcode.hasfree and
+                getattr(inst, 'argval', None) not in
+                code_obj.co_varnames[:code_obj.co_argcount]):
+            new_arg = inst.arg + new_locals_len
+            if new_arg != inst.arg:
+                modified.extend(_patch_span_arg(span, new_arg))
+                continue
+        modified.extend(span)
+    new_code = bytes(modified)
+    return code_obj.replace(
+        co_argcount=co_argcount + new_locals_len,
+        co_nlocals=max(code_obj.co_nlocals, len(varnames)),
+        co_varnames=varnames,
+        co_code=new_code,
+    )
 
 
 def append_arguments(code_obj, new_locals):

@@ -566,7 +566,7 @@ def TryStatement(type, block, handler, handlers, guardedHandlers, finalizer):
     if handler:
         identifier = handler['param']['name']
         holder = 'PyJsHolder_%s_%d' % (to_hex(identifier),
-                                       random.randrange(1e8))
+                                       random.randrange(int(1e8)))
         identifier = repr(identifier)
         result += 'except PyJsException as PyJsTempException:\n'
         # fill in except ( catch ) block and remember to recover holder variable to its previous state
@@ -630,17 +630,16 @@ def _default_params_init(params, defaults, used_vars):
     """Emit ES6 default-parameter initialization at function entry."""
     if not defaults:
         return ''
-    num_defaults = len(defaults)
-    num_params = len(params)
     code = ''
     for i, (param, py_name) in enumerate(zip(params, used_vars)):
-        default_idx = i - (num_params - num_defaults)
-        if default_idx >= 0:
-            js_name = param['name']
-            default_val = trans(defaults[default_idx])
-            code += 'if %s.is_undefined():\n' % py_name
-            code += '    %s = %s\n' % (py_name, default_val)
-            code += '    var.put(%s, %s)\n' % (repr(js_name), py_name)
+        default = defaults[i] if i < len(defaults) else None
+        if default is None:
+            continue
+        js_name = param['name']
+        default_val = trans(default)
+        code += 'if %s.is_undefined():\n' % py_name
+        code += '    %s = %s\n' % (py_name, default_val)
+        code += '    var.put(%s, %s)\n' % (repr(js_name), py_name)
     return code
 
 

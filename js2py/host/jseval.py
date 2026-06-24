@@ -8,7 +8,13 @@ except:
 
 @Js
 def Eval(code):
-    local_scope = inspect.stack()[3][0].f_locals['var']
+    local_scope = None
+    for frame_info in inspect.stack():
+        if 'var' in frame_info.frame.f_locals:
+            local_scope = frame_info.frame.f_locals['var']
+            break
+    if local_scope is None:
+        raise MakeError('ReferenceError', 'eval scope not found')
     global_scope = this.GlobalObject
     # todo fix scope - we have to behave differently if called through variable other than eval
     # we will use local scope (default)

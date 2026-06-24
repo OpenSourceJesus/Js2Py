@@ -10,11 +10,13 @@ def test_looks_like_es6():
 
 
 def test_native_default_parameters():
-    f = js2py.eval_js('function f(x, y) { y = (y === undefined) ? 2 : y; return x + y; }')
-    assert f(1) == 3
-    f2 = js2py.eval_js('function f(x, y=2) { return x + y; }')
-    assert f2(1) == 3
-    assert f2(1, 5) == 6
+    ctx = js2py.EvalJs()
+    ctx.execute('function f(x, y) { y = (y === undefined) ? 2 : y; return x + y; }')
+    assert ctx.f(1) == 3
+    ctx2 = js2py.EvalJs()
+    ctx2.execute('function f(x, y=2) { return x + y; }')
+    assert ctx2.f(1) == 3
+    assert ctx2.f(1, 5) == 6
 
 
 def test_native_object_shorthand():
@@ -66,3 +68,20 @@ class Shape {
 new Shape(1,2,3)
 ''')
     assert shape.x == 2
+
+
+if __name__ == '__main__':
+    import inspect
+    import sys
+
+    failed = 0
+    for name, func in sorted(inspect.getmembers(sys.modules[__name__], inspect.isfunction)):
+        if not name.startswith('test_'):
+            continue
+        try:
+            func()
+            print('ok', name)
+        except Exception as exc:
+            failed += 1
+            print('FAIL', name, exc)
+    sys.exit(1 if failed else 0)

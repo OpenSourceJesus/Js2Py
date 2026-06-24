@@ -1,5 +1,6 @@
 # coding=utf-8
 from .translators import translate_js, DEFAULT_HEADER
+from .translators.translator import _prepare_js_source
 import sys
 import time
 import json
@@ -120,12 +121,12 @@ def eval_js(js, es6=False):
 
 def eval_js6(js):
     """Just like eval_js but with experimental support for js6 via babel."""
-    return eval_js(js, es6=True)
+    return eval_js(_prepare_js_source(js, True))
 
 
 def translate_js6(js):
     """Just like translate_js but with experimental support for js6 via babel."""
-    return translate_js(js, es6=True)
+    return translate_js(_prepare_js_source(js, True))
 
 
 class EvalJs(object):
@@ -205,8 +206,9 @@ class EvalJs(object):
 
     def eval(self, expression, use_compilation_plan=False, es6=False):
         """evaluates expression in current context and returns its value"""
+        expression = _prepare_js_source(expression, es6)
         code = 'PyJsEvalResult = eval(%s)' % json.dumps(expression)
-        self.execute(code, use_compilation_plan=use_compilation_plan, es6=es6)
+        self.execute(code, use_compilation_plan=use_compilation_plan)
         return self['PyJsEvalResult']
 
     def execute_debug(self, js):

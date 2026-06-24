@@ -1150,7 +1150,10 @@ class Scope(PyJs):
             # fast local scope
             cand = self.own.get(prop)
             if cand is None:
-                return self.prototype.get(prop, throw)
+                parent = self.prototype
+                if isinstance(parent, Scope):
+                    return parent.get(prop, throw)
+                return parent.get(prop)
             return cand
         # slow, global scope
         if prop not in self.own:
@@ -1369,15 +1372,35 @@ class PyJsObject(PyJs):
 ObjectPrototype = PyJsObject()
 
 
+def _js_argcount(fcode):
+    """Number of JavaScript parameters (excluding this, arguments, and var)."""
+    names = fcode.co_varnames[:fcode.co_argcount]
+    if (len(names) >= 3 and names[-1] == 'var' and names[-3] == 'this' and
+            names[-2] == 'arguments'):
+        return len(names) - 3
+    if len(names) >= 2 and names[-2] == 'this' and names[-1] == 'arguments':
+        return len(names) - 2
+    return fcode.co_argcount - 2
+
+
 #Function
 class PyJsFunction(PyJs):
     Class = 'Function'
 
     def __init__(self, func, prototype=None, extensible=True, source=None):
         cand = fix_js_args(func)
-        has_scope = cand is func
         func = cand
-        self.argcount = six.get_function_code(func).co_argcount - 2 - has_scope
+        fcode = six.get_function_code(func)
+        fargs = fcode.co_varnames[fcode.co_argcount - 2:fcode.co_argcount]
+        if fargs == ('this', 'arguments') or fargs == ('arguments', 'var'):
+            self._js_global_this = False
+            self.argcount = _js_argcount(fcode)
+        elif cand is func:
+            self._js_global_this = True
+            self.argcount = fcode.co_argcount
+        else:
+            self._js_global_this = False
+            self.argcount = fcode.co_argcount - 2
         self.code = func
         self.source = source if source else '{ [python code] }'
         self.func_name = func.__name__ if not func.__name__.startswith(
@@ -1459,6 +1482,21 @@ class PyJsFunction(PyJs):
             args = args[0:arglen]
         elif len(args) < arglen:
             args += (undefined, ) * (arglen - len(args))
+        if self._js_global_this:
+            g = self.code.__globals__
+            saved = {}
+            for name, val in (('this', this), ('arguments', arguments)):
+                if name in g:
+                    saved[name] = g[name]
+                g[name] = val
+            try:
+                return Js(self.code(*args))
+            finally:
+                for name, val in six.iteritems(saved):
+                    g[name] = val
+                for name in ('this', 'arguments'):
+                    if name not in saved:
+                        g.pop(name, None)
         args += this, arguments  #append extra params to the arg list
         try:
             return Js(self.code(*args))
