@@ -8,6 +8,7 @@ from .constructors.jsnumber import Number
 from .constructors.jsboolean import Boolean
 from .constructors.jsregexp import RegExp
 from .constructors.jsarray import Array
+from .constructors.jspromise import Promise
 from .constructors.jsarraybuffer import ArrayBuffer
 from .constructors.jsint8array import Int8Array
 from .constructors.jsuint8array import Uint8Array
@@ -50,6 +51,7 @@ builtins = (
     'Object',
     'Function',
     'Array',
+    'Promise',
     'Int8Array',
     'Uint8Array',
     'Uint8ClampedArray',

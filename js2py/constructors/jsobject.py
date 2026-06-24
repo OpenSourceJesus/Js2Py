@@ -145,6 +145,48 @@ class ObjectMethods:
             raise MakeError('TypeError', 'Object.keys called on non-object')
         return [e for e, d in six.iteritems(obj.own) if d.get('enumerable')]
 
+    def values(obj):
+        if not obj.is_object():
+            raise MakeError('TypeError', 'Object.values called on non-object')
+        return [obj.get(k) for k, d in six.iteritems(obj.own)
+                if d.get('enumerable')]
+
+    def entries(obj):
+        if not obj.is_object():
+            raise MakeError('TypeError', 'Object.entries called on non-object')
+        return [[Js(k), obj.get(k)] for k, d in six.iteritems(obj.own)
+                if d.get('enumerable')]
+
+    def assign(target):
+        if not target.is_object():
+            raise MakeError('TypeError', 'Object.assign target must be an object')
+        obj = target.to_object()
+        for i in range(1, len(arguments)):
+            src = arguments[i]
+            if src.is_null() or src.is_undefined():
+                continue
+            src_obj = src.to_object()
+            for name, desc in six.iteritems(src_obj.own):
+                if desc.get('enumerable'):
+                    obj.put(name, src_obj.get(name))
+        return obj
+
+    def fromEntries(iterable):
+        obj = PyJsObject(prototype=ObjectPrototype)
+        items = iterable.to_object()
+        length = items.get('length')
+        if length.TYPE == 'Number':
+            count = length.to_uint32()
+            for i in range(count):
+                entry = items.get(str(i))
+                if entry.TYPE != 'Object':
+                    raise MakeError('TypeError', 'Invalid entry in fromEntries')
+                key = entry.get('0')
+                val = entry.get('1')
+                obj.put(key.to_string().value, val)
+            return obj
+        raise MakeError('TypeError', 'Object.fromEntries requires an iterable')
+
 
 # add methods attached to Object constructor
 fill_prototype(Object, ObjectMethods, default_attrs)
