@@ -2,6 +2,27 @@ INITIALISED = False
 babel = None
 babelPresetEs2015 = None
 
+import re
+
+# Patterns for ES6+ syntax that pyjsparser rejects or that needs Babel downleveling.
+_ES6_SYNTAX_RE = re.compile(
+    r'(?:'
+    r'=>|'                          # arrow functions
+    r'\bclass\b|'                  # classes
+    r'`|'                           # template literals
+    r'\.\.\.|'                      # spread/rest
+    r'\bfor\s*\([^)]*\bof\b|'      # for...of
+    r'\bimport\b|\bexport\b|'      # modules
+    r'\basync\b|\bawait\b|'        # async/await
+    r'\bfunction\s*\*'              # generators
+    r')',
+    re.MULTILINE)
+
+
+def looks_like_es6(code):
+    """Return True if source likely contains ES6+ syntax needing transpilation."""
+    return bool(_ES6_SYNTAX_RE.search(code))
+
 
 def js6_to_js5(code):
     global INITIALISED, babel, babelPresetEs2015

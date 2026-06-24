@@ -5,6 +5,12 @@ from . import translating_nodes
 import hashlib
 import re
 
+try:
+    from ..es6 import js6_to_js5, looks_like_es6
+except ImportError:
+    js6_to_js5 = None
+    looks_like_es6 = None
+
 # Enable Js2Py exceptions and pyimport in parser
 pyjsparser.parser.ENABLE_PYIMPORT = True
 
@@ -61,9 +67,28 @@ def pyjsparser_parse_fn(code):
     parser = pyjsparser.PyJsParser()
     return parser.parse(code)
 
-def translate_js(js, HEADER=DEFAULT_HEADER, use_compilation_plan=False, parse_fn=pyjsparser_parse_fn):
+def _prepare_js_source(js, es6=False):
+    """Optionally downlevel ES6 source to ES5 before translation."""
+    if es6 == 'auto':
+        if looks_like_es6 and looks_like_es6(js):
+            es6 = True
+        else:
+            es6 = False
+    if es6:
+        if js6_to_js5 is None:
+            raise RuntimeError('ES6 support is not available')
+        return js6_to_js5(js)
+    return js
+
+
+def translate_js(js, HEADER=DEFAULT_HEADER, use_compilation_plan=False,
+                 parse_fn=pyjsparser_parse_fn, es6=False):
     """js has to be a javascript source code.
-       returns equivalent python code."""
+       returns equivalent python code.
+
+       es6: False (ES5 only), True (always transpile via Babel), or 'auto'
+            (transpile when ES6 syntax is detected)."""
+    js = _prepare_js_source(js, es6)
     if use_compilation_plan and not '//' in js and not '/*' in js:
         return translate_js_with_compilation_plan(js, HEADER=HEADER)
 

@@ -24,6 +24,8 @@ def fix_js_args(func):
     fargs = fcode.co_varnames[fcode.co_argcount - 2:fcode.co_argcount]
     if fargs == ('this', 'arguments') or fargs == ('arguments', 'var'):
         return func
+    if sys.version_info >= (3, 13):
+        return _wrap_js_args(func)
     code = append_arguments(six.get_function_code(func), ('this', 'arguments'))
 
     result = types.FunctionType(
@@ -32,6 +34,20 @@ def fix_js_args(func):
         func.__name__,
         closure=six.get_function_closure(func))
     return result
+
+
+def _wrap_js_args(func):
+    """Append this/arguments to a function signature without rewriting bytecode."""
+    fcode = six.get_function_code(func)
+    param_names = list(fcode.co_varnames[:fcode.co_argcount])
+    func_name = func.__name__
+    sig = ', '.join(param_names + ['this', 'arguments'])
+    call = ', '.join(param_names)
+    src = 'def {name}({sig}):\n    return _func({call})\n'.format(
+        name=func_name, sig=sig, call=call)
+    namespace = {'_func': func}
+    exec(compile(src, '<js2py wrap>', 'exec'), namespace)
+    return namespace[func_name]
 
 
 def append_arguments(code_obj, new_locals):
@@ -261,7 +277,9 @@ def signature(func):
     code_obj.co_filename,
     code_obj.co_freevars, code_obj.co_cellvars)
 
-check(six.get_function_code(check))
+# Bytecode layoutText changed in 3.13+ (inline caches); skip round-trip check there.
+if sys.version_info < (3, 13):
+    check(six.get_function_code(check))
 
 
 

@@ -239,9 +239,14 @@ def ObjectExpression(type, properties):
     name = None
     elems = []
     after = ''
+    dynamic_inits = []
     for p in properties:
         if p['kind'] == 'init':
-            elems.append('%s:%s' % Property(**p))
+            key, val = Property(**p)
+            if key is None:
+                dynamic_inits.append(val)
+            else:
+                elems.append('%s:%s' % (key, val))
         else:
             if name is None:
                 name = inline_stack.require('Object')
@@ -257,6 +262,18 @@ def ObjectExpression(type, properties):
                     name, k, getter)
             else:
                 raise RuntimeError('Unexpected object propery kind')
+    if dynamic_inits:
+        if name is None:
+            name = inline_stack.require('Object')
+        definition = 'Js({%s})' % ','.join(elems) if elems else 'Js({})'
+        body = '%s = %s\n' % (name, definition)
+        for init in dynamic_inits:
+            body += init.replace('__OBJ__', name) + '\n'
+        body += after
+        body += 'return %s\n' % name
+        code = 'def %s():\n%s' % (name, indent(body))
+        inline_stack.define(name, code)
+        return name + '()'
     definition = 'Js({%s})' % ','.join(elems)
     if name is None:
         return definition
@@ -269,9 +286,15 @@ def ObjectExpression(type, properties):
 
 
 def Property(type, kind, key, computed, value, method, shorthand):
-    if shorthand or computed:
-        raise NotImplementedError(
-            'Shorthand and Computed properties not implemented!')
+    if shorthand:
+        k = to_key(key)
+        if k is None:
+            raise SyntaxError('Invalid key in dictionary! Or bug in Js2Py')
+        return repr(k), 'var.get(%s)' % repr(k)
+    if computed:
+        k_expr = trans(key)
+        v = trans(value)
+        return None, '%s.put(%s, %s)' % ('__OBJ__', k_expr, v)
     k = to_key(key)
     if k is None:
         raise SyntaxError('Invalid key in dictionary! Or bug in Js2Py')
@@ -603,12 +626,28 @@ def Program(type, body):
 # ======== FUNCTIONS ============
 
 
+def _default_params_init(params, defaults, used_vars):
+    """Emit ES6 default-parameter initialization at function entry."""
+    if not defaults:
+        return ''
+    num_defaults = len(defaults)
+    num_params = len(params)
+    code = ''
+    for i, (param, py_name) in enumerate(zip(params, used_vars)):
+        default_idx = i - (num_params - num_defaults)
+        if default_idx >= 0:
+            js_name = param['name']
+            default_val = trans(defaults[default_idx])
+            code += 'if %s.is_undefined():\n' % py_name
+            code += '    %s = %s\n' % (py_name, default_val)
+            code += '    var.put(%s, %s)\n' % (repr(js_name), py_name)
+    return code
+
+
 def FunctionDeclaration(type, id, params, defaults, body, generator,
                         expression):
     if generator:
         raise NotImplementedError('Generators not supported')
-    if defaults:
-        raise NotImplementedError('Defaults not supported')
     if not id:
         return FunctionExpression(type, id, params, defaults, body, generator,
                                   expression) + '\n'
@@ -643,10 +682,11 @@ def FunctionDeclaration(type, id, params, defaults, body, generator,
     arg_map.update({'this': 'this', 'arguments': 'arguments'})
     arg_conv = 'var = Scope({%s}, var)\n' % ', '.join(
         repr(k) + ':' + v for k, v in six.iteritems(arg_map))
+    default_init = _default_params_init(params, defaults or [], used_vars)
     # and finally set the name of the function to its real name:
     footer = '%s.func_name = %s\n' % (PyName, repr(JsName))
     footer += 'var.put(%s, %s)\n' % (repr(JsName), PyName)
-    whole_code = header + indent(arg_conv + code) + footer
+    whole_code = header + indent(arg_conv + default_init + code) + footer
     # restore context
     Context = previous_context
     # define in upper context
@@ -658,8 +698,6 @@ def FunctionExpression(type, id, params, defaults, body, generator,
                        expression):
     if generator:
         raise NotImplementedError('Generators not supported')
-    if defaults:
-        raise NotImplementedError('Defaults not supported')
     JsName = id['name'] if id else 'anonymous'
     if not is_valid_py_name(JsName):
         ScriptName = 'InlineNonPyName'
@@ -698,9 +736,10 @@ def FunctionExpression(type, id, params, defaults, body, generator,
             arg_map[id['name']] = PyName
     arg_conv = 'var = Scope({%s}, var)\n' % ', '.join(
         repr(k) + ':' + v for k, v in six.iteritems(arg_map))
+    default_init = _default_params_init(params, defaults or [], used_vars)
     # and finally set the name of the function to its real name:
     footer = '%s._set_name(%s)\n' % (PyName, repr(JsName))
-    whole_code = header + indent(arg_conv + code) + footer
+    whole_code = header + indent(arg_conv + default_init + code) + footer
     # restore context
     Context = previous_context
     # define in upper context

@@ -1,6 +1,5 @@
 # coding=utf-8
 from .translators import translate_js, DEFAULT_HEADER
-from .es6 import js6_to_js5
 import sys
 import time
 import json
@@ -57,10 +56,12 @@ def write_file_contents(path_or_file, contents):
             f.write(contents)
 
 
-def translate_file(input_path, output_path):
+def translate_file(input_path, output_path, es6=False):
     '''
     Translates input JS file to python and saves the it to the output path.
     It appends some convenience code at the end so that it is easy to import JS objects.
+
+    es6: False, True, or 'auto' — transpile ES6 via Babel before translation.
 
     For example we have a file 'example.js' with:   var a = function(x) {return x}
     translate_file('example.js', 'example.py')
@@ -72,7 +73,7 @@ def translate_file(input_path, output_path):
     '''
     js = get_file_contents(input_path)
 
-    py_code = translate_js(js)
+    py_code = translate_js(js, es6=es6)
     lib_name = os.path.basename(output_path).split('.')[0]
     head = '__all__ = [%s]\n\n# Don\'t look below, you will not understand this Python code :) I don\'t.\n\n' % repr(
         lib_name)
@@ -92,10 +93,12 @@ def run_file(path_or_file, context=None):
     return eval_value, context
 
 
-def eval_js(js):
+def eval_js(js, es6=False):
     """Just like javascript eval. Translates javascript to python,
        executes and returns python object.
        js is javascript source code
+
+       es6: False, True, or 'auto' — see translate_js.
 
        EXAMPLE:
         >>> import js2py
@@ -112,17 +115,17 @@ def eval_js(js):
        If you really want to convert object to python dict you can use to_dict method.
        """
     e = EvalJs()
-    return e.eval(js)
+    return e.eval(js, es6=es6)
 
 
 def eval_js6(js):
     """Just like eval_js but with experimental support for js6 via babel."""
-    return eval_js(js6_to_js5(js))
+    return eval_js(js, es6=True)
 
 
 def translate_js6(js):
     """Just like translate_js but with experimental support for js6 via babel."""
-    return translate_js(js6_to_js5(js))
+    return translate_js(js, es6=True)
 
 
 class EvalJs(object):
@@ -171,8 +174,10 @@ class EvalJs(object):
         for k, v in six.iteritems(context):
             setattr(self._var, k, v)
 
-    def execute(self, js=None, use_compilation_plan=False):
+    def execute(self, js=None, use_compilation_plan=False, es6=False):
         """executes javascript js in current context
+
+        es6: False, True, or 'auto' — transpile ES6 via Babel before translation.
 
         During initial execute() the converted js is cached for re-use. That means next time you
         run the same javascript snippet you save many instructions needed to parse and convert the
@@ -188,20 +193,20 @@ class EvalJs(object):
             cache = self.__dict__['cache']
         except KeyError:
             cache = self.__dict__['cache'] = {}
-        hashkey = hashlib.md5(js.encode('utf-8')).digest()
+        cache_key = (hashlib.md5(js.encode('utf-8')).digest(), es6)
         try:
-            compiled = cache[hashkey]
+            compiled = cache[cache_key]
         except KeyError:
             code = translate_js(
-                js, '', use_compilation_plan=use_compilation_plan)
-            compiled = cache[hashkey] = compile(code, '<EvalJS snippet>',
+                js, '', use_compilation_plan=use_compilation_plan, es6=es6)
+            compiled = cache[cache_key] = compile(code, '<EvalJS snippet>',
                                                 'exec')
         exec (compiled, self._context)
 
-    def eval(self, expression, use_compilation_plan=False):
+    def eval(self, expression, use_compilation_plan=False, es6=False):
         """evaluates expression in current context and returns its value"""
         code = 'PyJsEvalResult = eval(%s)' % json.dumps(expression)
-        self.execute(code, use_compilation_plan=use_compilation_plan)
+        self.execute(code, use_compilation_plan=use_compilation_plan, es6=es6)
         return self['PyJsEvalResult']
 
     def execute_debug(self, js):
