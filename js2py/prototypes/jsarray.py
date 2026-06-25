@@ -479,6 +479,19 @@ class ArrayPrototype:
                                arguments[1] if len(arguments) > 1 else this.undefined)
         return mapped.callprop('flat', this.Js(1))
 
+    def at(index):
+        array = this.to_object()
+        length = array.get('length').to_uint32()
+        k = index.to_int()
+        if k < 0:
+            k = length + k
+        if k < 0 or k >= length:
+            return this.undefined
+        key = str(k)
+        if not array.has_property(key):
+            return this.undefined
+        return array.get(key)
+
 
 def sort_compare(a, b, comp):
     if a is None:

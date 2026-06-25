@@ -67,7 +67,7 @@ __all__ = [
     'translate_file', 'run_file', 'disable_pyimport', 'eval_js6',
     'translate_js6', 'eval_js9', 'translate_js9', 'eval_js10', 'translate_js10',
     'eval_js11', 'translate_js11', 'eval_js12', 'translate_js12',
-    'drain_event_loop',
+    'eval_js13', 'translate_js13', 'drain_event_loop',
     'PyJsException', 'get_file_contents',
     'write_file_contents', 'require'
 ]

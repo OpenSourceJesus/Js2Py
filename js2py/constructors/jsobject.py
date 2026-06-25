@@ -187,6 +187,11 @@ class ObjectMethods:
             return obj
         raise MakeError('TypeError', 'Object.fromEntries requires an iterable')
 
+    def hasOwn(obj, prop):
+        if not obj.is_object():
+            raise MakeError('TypeError', 'Object.hasOwn called on non-object')
+        return prop.to_string().value in obj.own
+
 
 # add methods attached to Object constructor
 fill_prototype(Object, ObjectMethods, default_attrs)

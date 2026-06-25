@@ -372,6 +372,17 @@ class StringPrototype:
     def trimRight():
         return this.callprop('trimEnd')
 
+    def at(index):
+        this.cok()
+        s = this.to_string().value
+        length = len(s)
+        k = index.to_int()
+        if k < 0:
+            k = length + k
+        if k < 0 or k >= length:
+            return this.undefined
+        return this.Js(s[k])
+
 
 def SplitMatch(s, q, R):
     # s is Py String to match, q is the py int match start and R is Js RegExp or String.

@@ -35,6 +35,12 @@ except ImportError:
     looks_like_es12 = None
     prepare_es12 = None
 
+try:
+    from ..es13 import looks_like_es13, prepare_es13
+except ImportError:
+    looks_like_es13 = None
+    prepare_es13 = None
+
 # Enable Js2Py exceptions and pyimport in parser
 pyjsparser.parser.ENABLE_PYIMPORT = True
 
@@ -91,8 +97,14 @@ def pyjsparser_parse_fn(code):
     parser = pyjsparser.PyJsParser()
     return parser.parse(code)
 
-def _prepare_js_source(js, es6=False, es9=False, es10=False, es11=False, es12=False):
-    """Optionally downlevel ES6/ES9/ES10/ES11/ES12 source before translation."""
+def _prepare_js_source(js, es6=False, es9=False, es10=False, es11=False, es12=False,
+                       es13=False):
+    """Optionally downlevel ES6/ES9–ES13 source before translation."""
+    if es13 == 'auto':
+        if looks_like_es13 and looks_like_es13(js):
+            es13 = True
+        else:
+            es13 = False
     if es12 == 'auto':
         if looks_like_es12 and looks_like_es12(js):
             es12 = True
@@ -118,6 +130,8 @@ def _prepare_js_source(js, es6=False, es9=False, es10=False, es11=False, es12=Fa
             es6 = True
         else:
             es6 = False
+    if es13 and prepare_es13:
+        js = prepare_es13(js)
     if es12 and prepare_es12:
         js = prepare_es12(js)
     if es11 and prepare_es11:
@@ -135,7 +149,7 @@ def _prepare_js_source(js, es6=False, es9=False, es10=False, es11=False, es12=Fa
 
 def translate_js(js, HEADER=DEFAULT_HEADER, use_compilation_plan=False,
                  parse_fn=pyjsparser_parse_fn, es6=False, es9=False,
-                 es10=False, es11=False, es12=False):
+                 es10=False, es11=False, es12=False, es13=False):
     """js has to be a javascript source code.
        returns equivalent python code.
 
@@ -144,8 +158,10 @@ def translate_js(js, HEADER=DEFAULT_HEADER, use_compilation_plan=False,
        es9: False, True, or 'auto' — enable ES2018 features (spread/rest, etc.).
        es10: False, True, or 'auto' — enable ES2019 features (flat, trimStart, etc.).
        es11: False, True, or 'auto' — enable ES2020 features (??, ?., globalThis).
-       es12: False, True, or 'auto' — enable ES2021 features (&&=, numeric separators)."""
-    js = _prepare_js_source(js, es6=es6, es9=es9, es10=es10, es11=es11, es12=es12)
+       es12: False, True, or 'auto' — enable ES2021 features (&&=, numeric separators).
+       es13: False, True, or 'auto' — enable ES2022 features (at, Object.hasOwn)."""
+    js = _prepare_js_source(js, es6=es6, es9=es9, es10=es10, es11=es11,
+                            es12=es12, es13=es13)
     if use_compilation_plan and not '//' in js and not '/*' in js:
         return translate_js_with_compilation_plan(js, HEADER=HEADER)
 
