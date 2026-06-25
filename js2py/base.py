@@ -3044,6 +3044,21 @@ ERROR_NAMES = ['Eval', 'Type', 'Range', 'Reference', 'Syntax', 'URI']
 for e in ERROR_NAMES:
     define_error_type(e + 'Error')
 
+
+@Js
+def error_is_error(value):
+    if not value.is_object():
+        return False
+    return value.instanceof(Error).to_boolean().value
+
+
+Error.define_own_property('isError', {
+    'value': error_is_error,
+    'writable': True,
+    'enumerable': False,
+    'configurable': True
+})
+
 ##############################################################################
 # Import and fill prototypes here.
 

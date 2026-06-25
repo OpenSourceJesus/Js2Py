@@ -69,7 +69,8 @@ __all__ = [
     'eval_js9', 'translate_js9', 'eval_js10', 'translate_js10',
     'eval_js11', 'translate_js11', 'eval_js12', 'translate_js12',
     'eval_js13', 'translate_js13', 'eval_js14', 'translate_js14',
-    'eval_js15', 'translate_js15', 'eval_js16', 'translate_js16', 'drain_event_loop',
+    'eval_js15', 'translate_js15', 'eval_js16', 'translate_js16',
+    'eval_jsnext', 'translate_jsnext', 'drain_event_loop',
     'PyJsException', 'get_file_contents',
     'write_file_contents', 'require'
 ]
