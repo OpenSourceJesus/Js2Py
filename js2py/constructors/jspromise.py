@@ -333,6 +333,23 @@ def promise_with_resolvers():
     return out
 
 
+@Js
+def promise_try(callback):
+    args = arguments.to_list()[1:] if len(arguments) > 1 else []
+    if not callback.is_callable():
+        raise MakeError('TypeError', 'Promise.try callback must be a function')
+    try:
+        result = callback.call(undefined, tuple(args))
+    except PyJsException as exc:
+        return promise_reject(PyExceptionToJs(exc))
+    except Exception as exc:
+        return promise_reject(PyExceptionToJs(exc))
+    nested = _unwrap_promise(result)
+    if nested is not None:
+        return nested
+    return promise_resolve(result)
+
+
 Promise.define_own_property('resolve', {
     'value': promise_resolve,
     'writable': True,
@@ -359,6 +376,12 @@ Promise.define_own_property('any', {
 })
 Promise.define_own_property('withResolvers', {
     'value': promise_with_resolvers,
+    'writable': True,
+    'enumerable': False,
+    'configurable': True
+})
+Promise.define_own_property('try', {
+    'value': promise_try,
     'writable': True,
     'enumerable': False,
     'configurable': True

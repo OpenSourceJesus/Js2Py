@@ -17,6 +17,7 @@ __all__ = [
     'eval_js10', 'translate_js10', 'eval_js11', 'translate_js11',
     'eval_js12', 'translate_js12', 'eval_js13', 'translate_js13',
     'eval_js14', 'translate_js14', 'eval_js15', 'translate_js15',
+    'eval_js16', 'translate_js16',
     'run_file', 'disable_pyimport', 'drain_event_loop',
     'get_file_contents', 'write_file_contents'
 ]
@@ -143,7 +144,7 @@ def write_file_contents(path_or_file, contents):
 
 
 def translate_file(input_path, output_path, es6=False, es7=False, es8=False, es9=False, es10=False,
-                   es11=False, es12=False, es13=False, es14=False, es15=False):
+                   es11=False, es12=False, es13=False, es14=False, es15=False, es16=False):
     '''
     Translates input JS file to python and saves the it to the output path.
     It appends some convenience code at the end so that it is easy to import JS objects.
@@ -158,6 +159,7 @@ def translate_file(input_path, output_path, es6=False, es7=False, es8=False, es9
     es13: False, True, or 'auto' — enable ES2022 features (at, Object.hasOwn).
     es14: False, True, or 'auto' — enable ES2023 features (findLast, hashbang).
     es15: False, True, or 'auto' — enable ES2024 features (groupBy, withResolvers).
+    es16: False, True, or 'auto' — enable ES2025 features (RegExp.escape, Promise.try).
 
     For example we have a file 'example.js' with:   var a = function(x) {return x}
     translate_file('example.js', 'example.py')
@@ -170,7 +172,7 @@ def translate_file(input_path, output_path, es6=False, es7=False, es8=False, es9
     js = get_file_contents(input_path)
 
     py_code = translate_js(js, es6=es6, es7=es7, es8=es8, es9=es9, es10=es10, es11=es11,
-                           es12=es12, es13=es13, es14=es14, es15=es15)
+                           es12=es12, es13=es13, es14=es14, es15=es15, es16=es16)
     lib_name = os.path.basename(output_path).split('.')[0]
     head = '__all__ = [%s]\n\n# Don\'t look below, you will not understand this Python code :) I don\'t.\n\n' % repr(
         lib_name)
@@ -191,7 +193,7 @@ def run_file(path_or_file, context=None):
 
 
 def eval_js(js, es6=False, es7=False, es8=False, es9=False, es10=False, es11=False, es12=False,
-            es13=False, es14=False, es15=False):
+            es13=False, es14=False, es15=False, es16=False):
     """Just like javascript eval. Translates javascript to python,
        executes and returns python object.
        js is javascript source code
@@ -206,6 +208,7 @@ def eval_js(js, es6=False, es7=False, es8=False, es9=False, es10=False, es11=Fal
        es13: False, True, or 'auto' — enable ES2022 features.
        es14: False, True, or 'auto' — enable ES2023 features.
        es15: False, True, or 'auto' — enable ES2024 features.
+       es16: False, True, or 'auto' — enable ES2025 features.
 
        EXAMPLE:
         >>> import js2py
@@ -223,9 +226,19 @@ def eval_js(js, es6=False, es7=False, es8=False, es9=False, es10=False, es11=Fal
        """
     e = EvalJs()
     result = e.eval(js, es6=es6, es7=es7, es8=es8, es9=es9, es10=es10, es11=es11, es12=es12,
-                    es13=es13, es14=es14, es15=es15)
+                    es13=es13, es14=es14, es15=es15, es16=es16)
     drain_event_loop()
     return result
+
+
+def eval_js16(js):
+    """Like eval_js with ES2025 support enabled."""
+    return eval_js(js, es16=True)
+
+
+def translate_js16(js):
+    """Like translate_js with ES2025 support enabled."""
+    return translate_js(js, es16=True)
 
 
 def eval_js15(js):
@@ -375,7 +388,7 @@ class EvalJs(object):
             setattr(self._var, k, v)
 
     def execute(self, js=None, use_compilation_plan=False, es6=False, es7=False, es8=False, es9=False,
-                es10=False, es11=False, es12=False, es13=False, es14=False, es15=False):
+                es10=False, es11=False, es12=False, es13=False, es14=False, es15=False, es16=False):
         """executes javascript js in current context
 
         es6: False, True, or 'auto' — transpile ES6 via Babel before translation.
@@ -388,6 +401,7 @@ class EvalJs(object):
         es13: False, True, or 'auto' — enable ES2022 features.
         es14: False, True, or 'auto' — enable ES2023 features.
         es15: False, True, or 'auto' — enable ES2024 features.
+        es16: False, True, or 'auto' — enable ES2025 features.
 
         During initial execute() the converted js is cached for re-use. That means next time you
         run the same javascript snippet you save many instructions needed to parse and convert the
@@ -404,29 +418,29 @@ class EvalJs(object):
         except KeyError:
             cache = self.__dict__['cache'] = {}
         cache_key = (hashlib.md5(js.encode('utf-8')).digest(), es6, es7, es8, es9, es10,
-                     es11, es12, es13, es14, es15)
+                     es11, es12, es13, es14, es15, es16)
         try:
             compiled = cache[cache_key]
         except KeyError:
             code = translate_js(
                 js, '', use_compilation_plan=use_compilation_plan,
                 es6=es6, es7=es7, es8=es8, es9=es9, es10=es10, es11=es11, es12=es12,
-                es13=es13, es14=es14, es15=es15)
+                es13=es13, es14=es14, es15=es15, es16=es16)
             compiled = cache[cache_key] = compile(code, '<EvalJS snippet>',
                                                 'exec')
         exec (compiled, self._context)
         drain_event_loop()
 
     def eval(self, expression, use_compilation_plan=False, es6=False, es7=False, es8=False, es9=False,
-             es10=False, es11=False, es12=False, es13=False, es14=False, es15=False):
+             es10=False, es11=False, es12=False, es13=False, es14=False, es15=False, es16=False):
         """evaluates expression in current context and returns its value"""
         expression = _prepare_js_source(
             expression, es6=es6, es7=es7, es8=es8, es9=es9, es10=es10, es11=es11, es12=es12,
-            es13=es13, es14=es14, es15=es15)
+            es13=es13, es14=es14, es15=es15, es16=es16)
         code = _wrap_js_for_eval(expression)
         self.execute(code, use_compilation_plan=use_compilation_plan,
                      es6=es6, es7=es7, es8=es8, es9=es9, es10=es10, es11=es11, es12=es12,
-                     es13=es13, es14=es14, es15=es15)
+                     es13=es13, es14=es14, es15=es15, es16=es16)
         return self['PyJsEvalResult']
 
     def execute_debug(self, js):

@@ -4,7 +4,7 @@ ROOT := $(CURDIR)
 
 export PYTHONPATH := $(ROOT)
 
-.PHONY: help test test-simple test-es-all test-es6 test-es7 test-es8 test-es9 test-es10 test-es11 test-es12 test-es13 test-es14 test-es15 test-language test-all
+.PHONY: help test test-simple test-es-all test-es6 test-es7 test-es8 test-es9 test-es10 test-es11 test-es12 test-es13 test-es14 test-es15 test-es16 test-language test-all
 
 help:
 	@echo "Js2Py test targets:"
@@ -21,6 +21,7 @@ help:
 	@echo "  make test-es13     Run tests/test_es13.py"
 	@echo "  make test-es14     Run tests/test_es14.py"
 	@echo "  make test-es15     Run tests/test_es15.py"
+	@echo "  make test-es16     Run tests/test_es16.py"
 	@echo "  make test-language Run ES5.1 language suite (tests/run.py, slow)"
 	@echo "  make test-all      Run quick tests and the language suite"
 
@@ -30,7 +31,7 @@ test: test-simple test-es_
 test-simple:
 	PYTHONPATH="$(ROOT)" $(PYTHON) "$(ROOT)/simple_test.py"
 
-test-es_: test-es6 test-es7 test-es8 test-es9 test-es10 test-es11 test-es12 test-es13 test-es14 test-es15
+test-es_: test-es6 test-es7 test-es8 test-es9 test-es10 test-es11 test-es12 test-es13 test-es14 test-es15 test-es16
 
 test-es6:
 	PYTHONPATH="$(ROOT)" $(PYTHON) "$(ROOT)/tests/test_es6.py"
@@ -61,6 +62,9 @@ test-es14:
 
 test-es15:
 	PYTHONPATH="$(ROOT)" $(PYTHON) "$(ROOT)/tests/test_es15.py"
+
+test-es16:
+	PYTHONPATH="$(ROOT)" $(PYTHON) "$(ROOT)/tests/test_es16.py"
 
 test-language:
 	@test -f "$(ROOT)/tests/node_failed.txt" || touch "$(ROOT)/tests/node_failed.txt"

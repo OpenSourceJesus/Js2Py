@@ -54,6 +54,12 @@ except ImportError:
     prepare_es13 = None
 
 try:
+    from ..es16 import looks_like_es16, prepare_es16
+except ImportError:
+    looks_like_es16 = None
+    prepare_es16 = None
+
+try:
     from ..es15 import looks_like_es15, prepare_es15
 except ImportError:
     looks_like_es15 = None
@@ -122,8 +128,13 @@ def pyjsparser_parse_fn(code):
     return parser.parse(code)
 
 def _prepare_js_source(js, es6=False, es7=False, es8=False, es9=False, es10=False, es11=False, es12=False,
-                       es13=False, es14=False, es15=False):
-    """Optionally downlevel ES6/ES7–ES15 source before translation."""
+                       es13=False, es14=False, es15=False, es16=False):
+    """Optionally downlevel ES6/ES7–ES16 source before translation."""
+    if es16 == 'auto':
+        if looks_like_es16 and looks_like_es16(js):
+            es16 = True
+        else:
+            es16 = False
     if es15 == 'auto':
         if looks_like_es15 and looks_like_es15(js):
             es15 = True
@@ -174,6 +185,8 @@ def _prepare_js_source(js, es6=False, es7=False, es8=False, es9=False, es10=Fals
             es6 = True
         else:
             es6 = False
+    if es16 and prepare_es16:
+        js = prepare_es16(js)
     if es15 and prepare_es15:
         js = prepare_es15(js)
     if es14 and prepare_es14:
@@ -201,7 +214,7 @@ def _prepare_js_source(js, es6=False, es7=False, es8=False, es9=False, es10=Fals
 
 def translate_js(js, HEADER=DEFAULT_HEADER, use_compilation_plan=False,
                  parse_fn=pyjsparser_parse_fn, es6=False, es7=False, es8=False, es9=False,
-                 es10=False, es11=False, es12=False, es13=False, es14=False, es15=False):
+                 es10=False, es11=False, es12=False, es13=False, es14=False, es15=False, es16=False):
     """js has to be a javascript source code.
        returns equivalent python code.
 
@@ -215,9 +228,10 @@ def translate_js(js, HEADER=DEFAULT_HEADER, use_compilation_plan=False,
        es12: False, True, or 'auto' — enable ES2021 features (&&=, numeric separators).
        es13: False, True, or 'auto' — enable ES2022 features (at, Object.hasOwn).
        es14: False, True, or 'auto' — enable ES2023 features (findLast, hashbang).
-       es15: False, True, or 'auto' — enable ES2024 features (groupBy, withResolvers)."""
+       es15: False, True, or 'auto' — enable ES2024 features (groupBy, withResolvers).
+       es16: False, True, or 'auto' — enable ES2025 features (RegExp.escape, Promise.try)."""
     js = _prepare_js_source(js, es6=es6, es7=es7, es8=es8, es9=es9, es10=es10, es11=es11,
-                            es12=es12, es13=es13, es14=es14, es15=es15)
+                            es12=es12, es13=es13, es14=es14, es15=es15, es16=es16)
     if use_compilation_plan and not '//' in js and not '/*' in js:
         return translate_js_with_compilation_plan(js, HEADER=HEADER)
 

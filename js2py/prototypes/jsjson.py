@@ -1,6 +1,7 @@
 import json
 from ..base import Js
 indent = ''
+RAW_JSON_MARKER = '__PyJsRawJSON__'
 # python 3 support
 import six
 if six.PY3:
@@ -68,6 +69,10 @@ def stringify(value, replacer, space):
 
 def Str(key, holder, replacer_function, property_list, gap, stack, space):
     value = holder[key]
+    if value.is_object():
+        raw = value.get(RAW_JSON_MARKER)
+        if not raw.is_undefined():
+            return raw.to_string().value
     if value.is_object():
         to_json = value.get('toJSON')
         if to_json.is_callable():
@@ -200,6 +205,23 @@ def walk(holder, name, reviver):
     return reviver.call(holder, (name, val))
 
 
+def rawJSON(text):
+    s = text.to_string().value
+    try:
+        json.loads(s)
+    except Exception:
+        raise this.MakeError('SyntaxError', 'Invalid raw JSON text')
+    obj = this.Js({})
+    obj.put(RAW_JSON_MARKER, this.Js(s))
+    return obj
+
+
+def isRawJSON(value):
+    if not value.is_object():
+        return False
+    return not value.get(RAW_JSON_MARKER).is_undefined()
+
+
 JSON = Js({})
 
 JSON.define_own_property(
@@ -213,6 +235,22 @@ JSON.define_own_property(
 JSON.define_own_property(
     'stringify', {
         'value': Js(stringify),
+        'enumerable': False,
+        'writable': True,
+        'configurable': True
+    })
+
+JSON.define_own_property(
+    'rawJSON', {
+        'value': Js(rawJSON),
+        'enumerable': False,
+        'writable': True,
+        'configurable': True
+    })
+
+JSON.define_own_property(
+    'isRawJSON', {
+        'value': Js(isRawJSON),
         'enumerable': False,
         'writable': True,
         'configurable': True
