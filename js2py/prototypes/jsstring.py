@@ -402,6 +402,51 @@ class StringPrototype:
         repeated = (fill * ((pad_len // len(fill)) + 1))[:pad_len]
         return this.Js(s + repeated)
 
+    def isWellFormed():
+        this.cok()
+        s = this.to_string().value
+        i = 0
+        n = len(s)
+        while i < n:
+            c = ord(s[i])
+            if 0xD800 <= c <= 0xDBFF:
+                if i + 1 >= n:
+                    return False
+                c2 = ord(s[i + 1])
+                if not (0xDC00 <= c2 <= 0xDFFF):
+                    return False
+                i += 2
+            elif 0xDC00 <= c <= 0xDFFF:
+                return False
+            else:
+                i += 1
+        return True
+
+    def toWellFormed():
+        this.cok()
+        s = this.to_string().value
+        out = []
+        i = 0
+        n = len(s)
+        while i < n:
+            c = ord(s[i])
+            if 0xD800 <= c <= 0xDBFF:
+                if i + 1 < n:
+                    c2 = ord(s[i + 1])
+                    if 0xDC00 <= c2 <= 0xDFFF:
+                        out.append(s[i:i + 2])
+                        i += 2
+                        continue
+                out.append('\uFFFD')
+                i += 1
+            elif 0xDC00 <= c <= 0xDFFF:
+                out.append('\uFFFD')
+                i += 1
+            else:
+                out.append(s[i])
+                i += 1
+        return this.Js(''.join(out))
+
     def at(index):
         this.cok()
         s = this.to_string().value

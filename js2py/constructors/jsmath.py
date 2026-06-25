@@ -153,5 +153,17 @@ class MathFunctions:
     def random():
         return random.random()
 
+    def sumPrecise():
+        import math
+        values = []
+        for i in range(len(arguments)):
+            n = arguments[i]
+            if n.TYPE != 'Number':
+                raise MakeError('TypeError', 'Math.sumPrecise requires numbers')
+            values.append(n.to_number().value)
+        if not values:
+            return +0.0
+        return math.fsum(values)
+
 
 fill_prototype(Math, MathFunctions, default_attrs)

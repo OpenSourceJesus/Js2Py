@@ -204,6 +204,26 @@ class ObjectMethods:
             result.put(name, desc_obj)
         return result
 
+    def groupBy(items, callbackfn):
+        if not callbackfn.is_callable():
+            raise MakeError('TypeError', 'callbackfn must be a function')
+        items_obj = items.to_object()
+        length_val = items_obj.get('length')
+        if length_val.TYPE != 'Number':
+            raise MakeError('TypeError', 'Object.groupBy requires an iterable')
+        length = length_val.to_uint32()
+        groups = {}
+        for k in range(length):
+            if items_obj.has_property(str(k)):
+                value = items_obj.get(str(k))
+                key = callbackfn.call(undefined, (value, Js(k), items_obj))
+                key_str = key.to_string().value
+                groups.setdefault(key_str, []).append(value)
+        result = PyJsObject(prototype=null)
+        for key_str, values in six.iteritems(groups):
+            result.put(key_str, PyJsArray(values, ArrayPrototype))
+        return result
+
 
 # add methods attached to Object constructor
 fill_prototype(Object, ObjectMethods, default_attrs)

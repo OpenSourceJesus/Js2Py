@@ -310,6 +310,29 @@ def promise_any(iterable):
     return result_promise
 
 
+@Js
+def promise_with_resolvers():
+    out = PyJsObject(prototype=ObjectPrototype)
+    holder = {'promise': None}
+
+    @Js
+    def resolve(value):
+        _resolve_promise(holder['promise'], value)
+        return undefined
+
+    @Js
+    def reject(reason):
+        _reject_promise(holder['promise'], reason)
+        return undefined
+
+    promise = _create_promise(None)
+    holder['promise'] = promise
+    out.put('promise', promise)
+    out.put('resolve', resolve)
+    out.put('reject', reject)
+    return out
+
+
 Promise.define_own_property('resolve', {
     'value': promise_resolve,
     'writable': True,
@@ -330,6 +353,12 @@ Promise.define_own_property('allSettled', {
 })
 Promise.define_own_property('any', {
     'value': promise_any,
+    'writable': True,
+    'enumerable': False,
+    'configurable': True
+})
+Promise.define_own_property('withResolvers', {
+    'value': promise_with_resolvers,
     'writable': True,
     'enumerable': False,
     'configurable': True
