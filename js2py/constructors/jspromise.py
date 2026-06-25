@@ -268,6 +268,48 @@ def promise_all_settled(iterable):
     return result_promise
 
 
+@Js
+def promise_any(iterable):
+    arr = iterable.to_object()
+    length = arr.get('length').to_uint32()
+    result_promise = _create_promise(None)
+    if length == 0:
+        _reject_promise(result_promise, MakeError(
+            'Error', 'All promises were rejected'))
+        return result_promise
+    remaining = {'count': length}
+
+    def on_any_reject():
+        remaining['count'] -= 1
+        if remaining['count'] == 0:
+            state = _state(result_promise)
+            if state['state'] == 'pending':
+                _reject_promise(result_promise, MakeError(
+                    'Error', 'All promises were rejected'))
+
+    for i in range(length):
+        p = promise_resolve(arr.get(str(i)))
+
+        def make_handlers(idx):
+            @Js
+            def on_fulfilled(value):
+                state = _state(result_promise)
+                if state['state'] == 'pending':
+                    _resolve_promise(result_promise, value)
+                return undefined
+
+            @Js
+            def on_rejected(reason):
+                on_any_reject()
+                return undefined
+
+            return on_fulfilled, on_rejected
+
+        on_fulfilled, on_rejected = make_handlers(i)
+        p.callprop('then', on_fulfilled, on_rejected)
+    return result_promise
+
+
 Promise.define_own_property('resolve', {
     'value': promise_resolve,
     'writable': True,
@@ -282,6 +324,12 @@ Promise.define_own_property('reject', {
 })
 Promise.define_own_property('allSettled', {
     'value': promise_all_settled,
+    'writable': True,
+    'enumerable': False,
+    'configurable': True
+})
+Promise.define_own_property('any', {
+    'value': promise_any,
     'writable': True,
     'enumerable': False,
     'configurable': True

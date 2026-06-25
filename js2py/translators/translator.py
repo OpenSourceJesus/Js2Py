@@ -29,6 +29,12 @@ except ImportError:
     looks_like_es11 = None
     prepare_es11 = None
 
+try:
+    from ..es12 import looks_like_es12, prepare_es12
+except ImportError:
+    looks_like_es12 = None
+    prepare_es12 = None
+
 # Enable Js2Py exceptions and pyimport in parser
 pyjsparser.parser.ENABLE_PYIMPORT = True
 
@@ -85,8 +91,13 @@ def pyjsparser_parse_fn(code):
     parser = pyjsparser.PyJsParser()
     return parser.parse(code)
 
-def _prepare_js_source(js, es6=False, es9=False, es10=False, es11=False):
-    """Optionally downlevel ES6/ES9/ES10/ES11 source before translation."""
+def _prepare_js_source(js, es6=False, es9=False, es10=False, es11=False, es12=False):
+    """Optionally downlevel ES6/ES9/ES10/ES11/ES12 source before translation."""
+    if es12 == 'auto':
+        if looks_like_es12 and looks_like_es12(js):
+            es12 = True
+        else:
+            es12 = False
     if es11 == 'auto':
         if looks_like_es11 and looks_like_es11(js):
             es11 = True
@@ -107,6 +118,8 @@ def _prepare_js_source(js, es6=False, es9=False, es10=False, es11=False):
             es6 = True
         else:
             es6 = False
+    if es12 and prepare_es12:
+        js = prepare_es12(js)
     if es11 and prepare_es11:
         js = prepare_es11(js)
     if es10 and prepare_es10:
@@ -122,7 +135,7 @@ def _prepare_js_source(js, es6=False, es9=False, es10=False, es11=False):
 
 def translate_js(js, HEADER=DEFAULT_HEADER, use_compilation_plan=False,
                  parse_fn=pyjsparser_parse_fn, es6=False, es9=False,
-                 es10=False, es11=False):
+                 es10=False, es11=False, es12=False):
     """js has to be a javascript source code.
        returns equivalent python code.
 
@@ -130,8 +143,9 @@ def translate_js(js, HEADER=DEFAULT_HEADER, use_compilation_plan=False,
             (transpile when ES6 syntax is detected).
        es9: False, True, or 'auto' — enable ES2018 features (spread/rest, etc.).
        es10: False, True, or 'auto' — enable ES2019 features (flat, trimStart, etc.).
-       es11: False, True, or 'auto' — enable ES2020 features (??, ?., globalThis)."""
-    js = _prepare_js_source(js, es6=es6, es9=es9, es10=es10, es11=es11)
+       es11: False, True, or 'auto' — enable ES2020 features (??, ?., globalThis).
+       es12: False, True, or 'auto' — enable ES2021 features (&&=, numeric separators)."""
+    js = _prepare_js_source(js, es6=es6, es9=es9, es10=es10, es11=es11, es12=es12)
     if use_compilation_plan and not '//' in js and not '/*' in js:
         return translate_js_with_compilation_plan(js, HEADER=HEADER)
 

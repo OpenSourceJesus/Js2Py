@@ -201,6 +201,57 @@ class StringPrototype:
         res += s[span[1]:]
         return res
 
+    def replaceAll(searchValue, replaceValue):
+        this.cok()
+        string = this.to_string()
+        s = string.value
+        if not replaceValue.is_callable():
+            replaceValue = replaceValue.to_string().value
+            func = False
+        else:
+            func = True
+        if searchValue.Class == 'RegExp':
+            if not searchValue.glob:
+                raise this.MakeError(
+                    'TypeError',
+                    'replaceAll must be called with a global RegExp')
+            res = ''
+            last = 0
+            for e in re.finditer(searchValue.pat, s):
+                res += s[last:e.span()[0]]
+                if func:
+                    args = (e.group(), ) + e.groups() + (e.span()[1], string)
+                    args = map(this.Js, args)
+                    res += replaceValue(*args).to_string().value
+                else:
+                    res += replacement_template(replaceValue, s, e.span(),
+                                                e.groups())
+                last = e.span()[1]
+            res += s[last:]
+            return this.Js(res)
+        match = searchValue.to_string().value
+        if not match:
+            raise this.MakeError(
+                'TypeError', 'replaceAll must not replace with empty string')
+        if func:
+            res = ''
+            last = 0
+            ind = 0
+            while True:
+                pos = s.find(match, last)
+                if pos == -1:
+                    break
+                span = (pos, pos + len(match))
+                res += s[last:span[0]]
+                args = (match, ) + () + (span[1], string)
+                args = tuple(this.Js(x) for x in args)
+                res += replaceValue(*args).to_string().value
+                last = span[1]
+                ind += 1
+            res += s[last:]
+            return this.Js(res)
+        return this.Js(s.replace(match, replaceValue))
+
     def search(regexp):
         this.cok()
         string = this.to_string()
