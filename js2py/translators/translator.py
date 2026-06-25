@@ -12,6 +12,18 @@ except ImportError:
     looks_like_es6 = None
 
 try:
+    from ..es8 import looks_like_es8, prepare_es8
+except ImportError:
+    looks_like_es8 = None
+    prepare_es8 = None
+
+try:
+    from ..es7 import looks_like_es7, prepare_es7
+except ImportError:
+    looks_like_es7 = None
+    prepare_es7 = None
+
+try:
     from ..es9 import looks_like_es9, prepare_es9
 except ImportError:
     looks_like_es9 = None
@@ -40,6 +52,12 @@ try:
 except ImportError:
     looks_like_es13 = None
     prepare_es13 = None
+
+try:
+    from ..es14 import looks_like_es14, prepare_es14
+except ImportError:
+    looks_like_es14 = None
+    prepare_es14 = None
 
 # Enable Js2Py exceptions and pyimport in parser
 pyjsparser.parser.ENABLE_PYIMPORT = True
@@ -97,9 +115,14 @@ def pyjsparser_parse_fn(code):
     parser = pyjsparser.PyJsParser()
     return parser.parse(code)
 
-def _prepare_js_source(js, es6=False, es9=False, es10=False, es11=False, es12=False,
-                       es13=False):
-    """Optionally downlevel ES6/ES9–ES13 source before translation."""
+def _prepare_js_source(js, es6=False, es7=False, es8=False, es9=False, es10=False, es11=False, es12=False,
+                       es13=False, es14=False):
+    """Optionally downlevel ES6/ES7–ES14 source before translation."""
+    if es14 == 'auto':
+        if looks_like_es14 and looks_like_es14(js):
+            es14 = True
+        else:
+            es14 = False
     if es13 == 'auto':
         if looks_like_es13 and looks_like_es13(js):
             es13 = True
@@ -125,11 +148,23 @@ def _prepare_js_source(js, es6=False, es9=False, es10=False, es11=False, es12=Fa
             es9 = True
         else:
             es9 = False
+    if es8 == 'auto':
+        if looks_like_es8 and looks_like_es8(js):
+            es8 = True
+        else:
+            es8 = False
+    if es7 == 'auto':
+        if looks_like_es7 and looks_like_es7(js):
+            es7 = True
+        else:
+            es7 = False
     if es6 == 'auto':
         if looks_like_es6 and looks_like_es6(js):
             es6 = True
         else:
             es6 = False
+    if es14 and prepare_es14:
+        js = prepare_es14(js)
     if es13 and prepare_es13:
         js = prepare_es13(js)
     if es12 and prepare_es12:
@@ -140,6 +175,10 @@ def _prepare_js_source(js, es6=False, es9=False, es10=False, es11=False, es12=Fa
         js = prepare_es10(js)
     if es9 and prepare_es9:
         js = prepare_es9(js)
+    if es8 and prepare_es8:
+        js = prepare_es8(js)
+    if es7 and prepare_es7:
+        js = prepare_es7(js)
     if es6:
         if js6_to_js5 is None:
             raise RuntimeError('ES6 support is not available')
@@ -148,20 +187,23 @@ def _prepare_js_source(js, es6=False, es9=False, es10=False, es11=False, es12=Fa
 
 
 def translate_js(js, HEADER=DEFAULT_HEADER, use_compilation_plan=False,
-                 parse_fn=pyjsparser_parse_fn, es6=False, es9=False,
-                 es10=False, es11=False, es12=False, es13=False):
+                 parse_fn=pyjsparser_parse_fn, es6=False, es7=False, es8=False, es9=False,
+                 es10=False, es11=False, es12=False, es13=False, es14=False):
     """js has to be a javascript source code.
        returns equivalent python code.
 
        es6: False (ES5 only), True (always transpile via Babel), or 'auto'
             (transpile when ES6 syntax is detected).
+       es7: False, True, or 'auto' — enable ES2016 features (**, includes).
+       es8: False, True, or 'auto' — enable ES2017 features (padStart, Object.values).
        es9: False, True, or 'auto' — enable ES2018 features (spread/rest, etc.).
        es10: False, True, or 'auto' — enable ES2019 features (flat, trimStart, etc.).
        es11: False, True, or 'auto' — enable ES2020 features (??, ?., globalThis).
        es12: False, True, or 'auto' — enable ES2021 features (&&=, numeric separators).
-       es13: False, True, or 'auto' — enable ES2022 features (at, Object.hasOwn)."""
-    js = _prepare_js_source(js, es6=es6, es9=es9, es10=es10, es11=es11,
-                            es12=es12, es13=es13)
+       es13: False, True, or 'auto' — enable ES2022 features (at, Object.hasOwn).
+       es14: False, True, or 'auto' — enable ES2023 features (findLast, hashbang)."""
+    js = _prepare_js_source(js, es6=es6, es7=es7, es8=es8, es9=es9, es10=es10, es11=es11,
+                            es12=es12, es13=es13, es14=es14)
     if use_compilation_plan and not '//' in js and not '/*' in js:
         return translate_js_with_compilation_plan(js, HEADER=HEADER)
 

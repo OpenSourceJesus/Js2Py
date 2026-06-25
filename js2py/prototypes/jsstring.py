@@ -372,6 +372,36 @@ class StringPrototype:
     def trimRight():
         return this.callprop('trimEnd')
 
+    def padStart(maxLength):
+        this.cok()
+        s = this.to_string().value
+        target = maxLength.to_int()
+        fill = ' '
+        if len(arguments) > 1 and not arguments[1].is_undefined():
+            fill = arguments[1].to_string().value
+            if not fill:
+                fill = ' '
+        if len(s) >= target:
+            return this.Js(s)
+        pad_len = target - len(s)
+        repeated = (fill * ((pad_len // len(fill)) + 1))[:pad_len]
+        return this.Js(repeated + s)
+
+    def padEnd(maxLength):
+        this.cok()
+        s = this.to_string().value
+        target = maxLength.to_int()
+        fill = ' '
+        if len(arguments) > 1 and not arguments[1].is_undefined():
+            fill = arguments[1].to_string().value
+            if not fill:
+                fill = ' '
+        if len(s) >= target:
+            return this.Js(s)
+        pad_len = target - len(s)
+        repeated = (fill * ((pad_len // len(fill)) + 1))[:pad_len]
+        return this.Js(s + repeated)
+
     def at(index):
         this.cok()
         s = this.to_string().value

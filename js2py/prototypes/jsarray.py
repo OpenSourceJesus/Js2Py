@@ -304,6 +304,27 @@ class ArrayPrototype:
             k -= 1
         return -1
 
+    def includes(searchElement):
+        array = this.to_object()
+        arr_len = array.get('length').to_uint32()
+        if len(arguments) > 1:
+            fromIndex = arguments[1].to_int()
+        else:
+            fromIndex = 0
+        k = fromIndex
+        if k < 0:
+            k = arr_len + k
+            if k < 0:
+                k = 0
+        while k < arr_len:
+            if array.has_property(str(k)):
+                elementK = array.get(str(k))
+                if (searchElement.is_nan() and elementK.is_nan()) or (
+                        searchElement.strict_equality_comparison(elementK).value):
+                    return True
+            k += 1
+        return False
+
     def every(callbackfn):
         array = this.to_object()
         arr_len = array.get('length').to_uint32()
@@ -388,6 +409,38 @@ class ArrayPrototype:
                     res.append(kValue)
             k += 1
         return res  # converted to js array automatically
+
+    def findLast(callbackfn):
+        array = this.to_object()
+        arr_len = array.get('length').to_uint32()
+        if not callbackfn.is_callable():
+            raise this.MakeError('TypeError', 'callbackfn must be a function')
+        T = arguments[1] if len(arguments) > 1 else this.undefined
+        k = arr_len - 1
+        while k >= 0:
+            if array.has_property(str(k)):
+                kValue = array.get(str(k))
+                if callbackfn.call(
+                        T, (kValue, this.Js(k), array)).to_boolean().value:
+                    return kValue
+            k -= 1
+        return this.undefined
+
+    def findLastIndex(callbackfn):
+        array = this.to_object()
+        arr_len = array.get('length').to_uint32()
+        if not callbackfn.is_callable():
+            raise this.MakeError('TypeError', 'callbackfn must be a function')
+        T = arguments[1] if len(arguments) > 1 else this.undefined
+        k = arr_len - 1
+        while k >= 0:
+            if array.has_property(str(k)):
+                kValue = array.get(str(k))
+                if callbackfn.call(
+                        T, (kValue, this.Js(k), array)).to_boolean().value:
+                    return k
+            k -= 1
+        return -1
 
     def reduce(callbackfn):
         array = this.to_object()

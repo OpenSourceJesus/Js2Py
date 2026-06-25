@@ -192,6 +192,18 @@ class ObjectMethods:
             raise MakeError('TypeError', 'Object.hasOwn called on non-object')
         return prop.to_string().value in obj.own
 
+    def getOwnPropertyDescriptors(obj):
+        if not obj.is_object():
+            raise MakeError('TypeError',
+                            'Object.getOwnPropertyDescriptors called on non-object')
+        result = PyJsObject(prototype=ObjectPrototype)
+        for name, desc in six.iteritems(obj.own):
+            desc_obj = PyJsObject(prototype=ObjectPrototype)
+            for key, val in six.iteritems(desc):
+                desc_obj.put(key, val)
+            result.put(name, desc_obj)
+        return result
+
 
 # add methods attached to Object constructor
 fill_prototype(Object, ObjectMethods, default_attrs)

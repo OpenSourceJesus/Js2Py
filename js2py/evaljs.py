@@ -12,13 +12,94 @@ import codecs
 
 __all__ = [
     'EvalJs', 'translate_js', 'import_js', 'eval_js', 'translate_file',
-    'eval_js6', 'translate_js6', 'eval_js9', 'translate_js9',
+    'eval_js6', 'translate_js6', 'eval_js7', 'translate_js7',
+    'eval_js8', 'translate_js8', 'eval_js9', 'translate_js9',
     'eval_js10', 'translate_js10', 'eval_js11', 'translate_js11',
     'eval_js12', 'translate_js12', 'eval_js13', 'translate_js13',
+    'eval_js14', 'translate_js14',
     'run_file', 'disable_pyimport', 'drain_event_loop',
     'get_file_contents', 'write_file_contents'
 ]
 DEBUG = False
+
+
+def _strip_leading_use_strict(code):
+    code = code.lstrip('\ufeff')
+    while True:
+        stripped = code.lstrip()
+        for quote in ('"', "'"):
+            directive = quote + 'use strict' + quote
+            if stripped.startswith(directive):
+                rest = stripped[len(directive):].lstrip()
+                if rest.startswith(';'):
+                    code = rest[1:].lstrip()
+                    break
+                return code
+        else:
+            return code
+
+
+def _split_top_level_statements(code):
+    parts = []
+    current = []
+    depth = 0
+    in_single = in_double = in_template = False
+    escape = False
+    for char in code:
+        if escape:
+            escape = False
+            current.append(char)
+            continue
+        if char == '\\' and (in_single or in_double):
+            escape = True
+            current.append(char)
+            continue
+        if not in_single and not in_double and not in_template:
+            if char == "'":
+                in_single = True
+            elif char == '"':
+                in_double = True
+            elif char == '`':
+                in_template = True
+            elif char in '({[':
+                depth += 1
+            elif char in ')}]':
+                depth = max(0, depth - 1)
+            elif char == ';' and depth == 0:
+                part = ''.join(current).strip()
+                if part:
+                    parts.append(part)
+                current = []
+                continue
+            elif char == '\n' and depth == 0:
+                part = ''.join(current).strip()
+                if part:
+                    parts.append(part)
+                    current = []
+                continue
+        elif in_single and char == "'":
+            in_single = False
+        elif in_double and char == '"':
+            in_double = False
+        elif in_template and char == '`':
+            in_template = False
+        current.append(char)
+    remainder = ''.join(current).strip()
+    if remainder:
+        parts.append(remainder)
+    return parts
+
+
+def _wrap_js_for_eval(prepared):
+    """Wrap prepared JS so the last statement's value becomes PyJsEvalResult."""
+    prepared = _strip_leading_use_strict(prepared).strip()
+    if not prepared:
+        return 'PyJsEvalResult = undefined'
+    parts = _split_top_level_statements(prepared)
+    if len(parts) == 1:
+        return 'PyJsEvalResult = (%s)' % parts[0]
+    body = ';\n'.join(parts[:-1])
+    return '%s;\nPyJsEvalResult = %s' % (body, parts[-1])
 
 
 def disable_pyimport():
@@ -61,18 +142,21 @@ def write_file_contents(path_or_file, contents):
             f.write(contents)
 
 
-def translate_file(input_path, output_path, es6=False, es9=False, es10=False,
-                   es11=False, es12=False, es13=False):
+def translate_file(input_path, output_path, es6=False, es7=False, es8=False, es9=False, es10=False,
+                   es11=False, es12=False, es13=False, es14=False):
     '''
     Translates input JS file to python and saves the it to the output path.
     It appends some convenience code at the end so that it is easy to import JS objects.
 
     es6: False, True, or 'auto' — transpile ES6 via Babel before translation.
+    es7: False, True, or 'auto' — enable ES2016 features (**, includes).
+    es8: False, True, or 'auto' — enable ES2017 features (padStart, Object.values).
     es9: False, True, or 'auto' — enable ES2018 features (object spread/rest, etc.).
     es10: False, True, or 'auto' — enable ES2019 features (flat, trimStart, etc.).
     es11: False, True, or 'auto' — enable ES2020 features (??, ?., globalThis).
     es12: False, True, or 'auto' — enable ES2021 features (&&=, numeric separators).
     es13: False, True, or 'auto' — enable ES2022 features (at, Object.hasOwn).
+    es14: False, True, or 'auto' — enable ES2023 features (findLast, hashbang).
 
     For example we have a file 'example.js' with:   var a = function(x) {return x}
     translate_file('example.js', 'example.py')
@@ -84,8 +168,8 @@ def translate_file(input_path, output_path, es6=False, es9=False, es10=False,
     '''
     js = get_file_contents(input_path)
 
-    py_code = translate_js(js, es6=es6, es9=es9, es10=es10, es11=es11,
-                           es12=es12, es13=es13)
+    py_code = translate_js(js, es6=es6, es7=es7, es8=es8, es9=es9, es10=es10, es11=es11,
+                           es12=es12, es13=es13, es14=es14)
     lib_name = os.path.basename(output_path).split('.')[0]
     head = '__all__ = [%s]\n\n# Don\'t look below, you will not understand this Python code :) I don\'t.\n\n' % repr(
         lib_name)
@@ -105,17 +189,21 @@ def run_file(path_or_file, context=None):
     return eval_value, context
 
 
-def eval_js(js, es6=False, es9=False, es10=False, es11=False, es12=False, es13=False):
+def eval_js(js, es6=False, es7=False, es8=False, es9=False, es10=False, es11=False, es12=False,
+            es13=False, es14=False):
     """Just like javascript eval. Translates javascript to python,
        executes and returns python object.
        js is javascript source code
 
        es6: False, True, or 'auto' — see translate_js.
+       es7: False, True, or 'auto' — enable ES2016 features.
+       es8: False, True, or 'auto' — enable ES2017 features.
        es9: False, True, or 'auto' — enable ES2018 features.
        es10: False, True, or 'auto' — enable ES2019 features.
        es11: False, True, or 'auto' — enable ES2020 features.
        es12: False, True, or 'auto' — enable ES2021 features.
        es13: False, True, or 'auto' — enable ES2022 features.
+       es14: False, True, or 'auto' — enable ES2023 features.
 
        EXAMPLE:
         >>> import js2py
@@ -132,10 +220,20 @@ def eval_js(js, es6=False, es9=False, es10=False, es11=False, es12=False, es13=F
        If you really want to convert object to python dict you can use to_dict method.
        """
     e = EvalJs()
-    result = e.eval(js, es6=es6, es9=es9, es10=es10, es11=es11, es12=es12,
-                    es13=es13)
+    result = e.eval(js, es6=es6, es7=es7, es8=es8, es9=es9, es10=es10, es11=es11, es12=es12,
+                    es13=es13, es14=es14)
     drain_event_loop()
     return result
+
+
+def eval_js14(js):
+    """Like eval_js with ES2023 support enabled."""
+    return eval_js(js, es14=True)
+
+
+def translate_js14(js):
+    """Like translate_js with ES2023 support enabled."""
+    return translate_js(js, es14=True)
 
 
 def eval_js13(js):
@@ -190,12 +288,32 @@ def translate_js9(js):
 
 def eval_js6(js):
     """Just like eval_js but with experimental support for js6 via babel."""
-    return eval_js(_prepare_js_source(js, True))
+    return eval_js(js, es6=True)
 
 
 def translate_js6(js):
     """Just like translate_js but with experimental support for js6 via babel."""
-    return translate_js(_prepare_js_source(js, True))
+    return translate_js(js, es6=True)
+
+
+def eval_js7(js):
+    """Like eval_js with ES2016 support enabled."""
+    return eval_js(js, es7=True)
+
+
+def translate_js7(js):
+    """Like translate_js with ES2016 support enabled."""
+    return translate_js(js, es7=True)
+
+
+def eval_js8(js):
+    """Like eval_js with ES2017 support enabled."""
+    return eval_js(js, es8=True)
+
+
+def translate_js8(js):
+    """Like translate_js with ES2017 support enabled."""
+    return translate_js(js, es8=True)
 
 
 class EvalJs(object):
@@ -244,16 +362,19 @@ class EvalJs(object):
         for k, v in six.iteritems(context):
             setattr(self._var, k, v)
 
-    def execute(self, js=None, use_compilation_plan=False, es6=False, es9=False,
-                es10=False, es11=False, es12=False, es13=False):
+    def execute(self, js=None, use_compilation_plan=False, es6=False, es7=False, es8=False, es9=False,
+                es10=False, es11=False, es12=False, es13=False, es14=False):
         """executes javascript js in current context
 
         es6: False, True, or 'auto' — transpile ES6 via Babel before translation.
+        es7: False, True, or 'auto' — enable ES2016 features.
+        es8: False, True, or 'auto' — enable ES2017 features.
         es9: False, True, or 'auto' — enable ES2018 features.
         es10: False, True, or 'auto' — enable ES2019 features.
         es11: False, True, or 'auto' — enable ES2020 features.
         es12: False, True, or 'auto' — enable ES2021 features.
         es13: False, True, or 'auto' — enable ES2022 features.
+        es14: False, True, or 'auto' — enable ES2023 features.
 
         During initial execute() the converted js is cached for re-use. That means next time you
         run the same javascript snippet you save many instructions needed to parse and convert the
@@ -269,29 +390,30 @@ class EvalJs(object):
             cache = self.__dict__['cache']
         except KeyError:
             cache = self.__dict__['cache'] = {}
-        cache_key = (hashlib.md5(js.encode('utf-8')).digest(), es6, es9, es10,
-                     es11, es12, es13)
+        cache_key = (hashlib.md5(js.encode('utf-8')).digest(), es6, es7, es8, es9, es10,
+                     es11, es12, es13, es14)
         try:
             compiled = cache[cache_key]
         except KeyError:
             code = translate_js(
                 js, '', use_compilation_plan=use_compilation_plan,
-                es6=es6, es9=es9, es10=es10, es11=es11, es12=es12, es13=es13)
+                es6=es6, es7=es7, es8=es8, es9=es9, es10=es10, es11=es11, es12=es12,
+                es13=es13, es14=es14)
             compiled = cache[cache_key] = compile(code, '<EvalJS snippet>',
                                                 'exec')
         exec (compiled, self._context)
         drain_event_loop()
 
-    def eval(self, expression, use_compilation_plan=False, es6=False, es9=False,
-             es10=False, es11=False, es12=False, es13=False):
+    def eval(self, expression, use_compilation_plan=False, es6=False, es7=False, es8=False, es9=False,
+             es10=False, es11=False, es12=False, es13=False, es14=False):
         """evaluates expression in current context and returns its value"""
         expression = _prepare_js_source(
-            expression, es6=es6, es9=es9, es10=es10, es11=es11, es12=es12,
-            es13=es13)
-        code = 'PyJsEvalResult = %s' % expression
+            expression, es6=es6, es7=es7, es8=es8, es9=es9, es10=es10, es11=es11, es12=es12,
+            es13=es13, es14=es14)
+        code = _wrap_js_for_eval(expression)
         self.execute(code, use_compilation_plan=use_compilation_plan,
-                     es6=es6, es9=es9, es10=es10, es11=es11, es12=es12,
-                     es13=es13)
+                     es6=es6, es7=es7, es8=es8, es9=es9, es10=es10, es11=es11, es12=es12,
+                     es13=es13, es14=es14)
         return self['PyJsEvalResult']
 
     def execute_debug(self, js):
