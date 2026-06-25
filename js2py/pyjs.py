@@ -90,6 +90,8 @@ def set_global_object(obj):
     # also add window and set it to be a global object for compatibility
     obj.register('window')
     obj.put('window', this)
+    obj.register('globalThis')
+    obj.put('globalThis', this)
 
 
 scope = dict(zip(builtins, [globals()[e] for e in builtins]))

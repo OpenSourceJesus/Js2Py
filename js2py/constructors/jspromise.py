@@ -221,6 +221,53 @@ def promise_reject(reason):
     return promise
 
 
+@Js
+def promise_all_settled(iterable):
+    arr = iterable.to_object()
+    length = arr.get('length').to_uint32()
+    result_promise = _create_promise(None)
+    if length == 0:
+        _resolve_promise(result_promise, [])
+        return result_promise
+    results = [undefined] * length
+    remaining = {'count': length}
+
+    def settle(index, status, payload):
+        entry = PyJsObject(prototype=ObjectPrototype)
+        entry.put('status', Js(status))
+        if status == 'fulfilled':
+            entry.put('value', payload)
+        else:
+            entry.put('reason', payload)
+        results[index] = entry
+        remaining['count'] -= 1
+        if remaining['count'] == 0:
+            out = Js([])
+            for i, item in enumerate(results):
+                out.put(str(i), item)
+            _resolve_promise(result_promise, out)
+
+    for i in range(length):
+        p = promise_resolve(arr.get(str(i)))
+
+        def make_handlers(idx):
+            @Js
+            def on_fulfilled(value):
+                settle(idx, 'fulfilled', value)
+                return undefined
+
+            @Js
+            def on_rejected(reason):
+                settle(idx, 'rejected', reason)
+                return undefined
+
+            return on_fulfilled, on_rejected
+
+        on_fulfilled, on_rejected = make_handlers(i)
+        p.callprop('then', on_fulfilled, on_rejected)
+    return result_promise
+
+
 Promise.define_own_property('resolve', {
     'value': promise_resolve,
     'writable': True,
@@ -229,6 +276,12 @@ Promise.define_own_property('resolve', {
 })
 Promise.define_own_property('reject', {
     'value': promise_reject,
+    'writable': True,
+    'enumerable': False,
+    'configurable': True
+})
+Promise.define_own_property('allSettled', {
+    'value': promise_all_settled,
     'writable': True,
     'enumerable': False,
     'configurable': True
